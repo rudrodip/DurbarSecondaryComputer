@@ -9,22 +9,35 @@
 #define chipSelect 10
 #define OLED_RESET -1
 
-#define controlPot 0
+#define controlPot 1
 #define devButton 8
 #define DHTPIN 7
 #define DHTTYPE DHT11
 #define SmokeInput 0
 
-U8GLIB_SH1106_128X64 u8g(U8G_I2C_OPT_DEV_0|U8G_I2C_OPT_FAST);
+U8GLIB_SH1106_128X64 u8g(U8G_I2C_OPT_NONE);
 DHT dht(DHTPIN, DHTTYPE);
 TMRpcm audio;
 SdFat sd;
 
-void draw(void) {
-  // graphic commands to redraw the complete screen should be placed here  
-  u8g.setFont(u8g_font_unifont);
-  //u8g.setFont(u8g_font_osb21);
-  u8g.drawStr( 0, 22, "Hello World!");
+void HumMeter(float* humPerc, float* temp, int* smoke)
+{
+  u8g.setFont(u8g_font_fub11);
+  u8g.setFontRefHeightExtendedText();
+  u8g.setDefaultForegroundColor();
+  u8g.setFontPosTop();
+  
+  u8g.drawStr(4, 0, "Hum %");
+  u8g.setPrintPos(80, 0);
+  u8g.print(*humPerc);
+  
+  u8g.drawStr(4, 20, "Temp C");
+  u8g.setPrintPos(80, 20);
+  u8g.print(*temp);
+
+  u8g.drawStr(4, 40, "Smoke% ");
+  u8g.setPrintPos(80, 40);
+  u8g.print(*smoke);
 }
 
 
@@ -35,14 +48,17 @@ void setup()
   
   dht.begin();
     
-  if (!sd.begin(53, SPI_FULL_SPEED)) { return; 
-  }else{ Serial.println("SD OK"); }
+  if (!sd.begin(chipSelect, SPI_FULL_SPEED)) { 
+    Serial.println("sd problem");
+    return; 
+  }
+  else{ Serial.println("SD OK"); }
     
   audio.play("song.wav");
   
   // pinModes
   pinMode(controlPot, INPUT);
-  pinMode(devButton, INPUT);
+  pinMode(devButton, INPUT_PULLUP);
   pinMode(SmokeInput, INPUT);
 
   // assign default color value
@@ -67,13 +83,17 @@ void loop()
   float humidity = dht.readHumidity();
   float temperature = dht.readTemperature();
   int smoke = analogRead(SmokeInput);
+  int control = analogRead(controlPot);
 
-  String data = String(temperature) + "-" + String(humidity) + "-" + String(smoke);
+  String data = "t" + String(temperature) + "-" + String(humidity) + "-" + String(smoke);
   Serial.println(data);
-
+  Serial.println(control);
    // picture loop
-  u8g.firstPage();  
-  do {
-    draw();
-  } while( u8g.nextPage() );
+  u8g.firstPage();
+      do
+      {
+        HumMeter(&humidity, &temperature, &smoke);
+      }
+      while (u8g.nextPage());
+  delay(100);
 }
